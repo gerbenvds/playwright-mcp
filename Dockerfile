@@ -13,8 +13,10 @@ ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
 # Set the working directory
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && \
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+  npm ci --omit=dev && \
   # Install system dependencies for playwright
   npx -y playwright-core install-deps chromium
 
@@ -23,11 +25,13 @@ RUN npm ci --omit=dev && \
 # ------------------------------
 FROM base AS builder
 
-# Already have package.json and package-lock.json from base stage
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+  npm ci
 
 # Copy the rest of the app
-COPY *.js *.ts .
+COPY *.json *.js *.ts .
 
 # ------------------------------
 # Browser
@@ -38,8 +42,6 @@ COPY *.js *.ts .
 FROM base AS browser
 
 RUN npx -y playwright-core install --no-shell chromium
-RUN npx -y playwright-core install --with-deps --no-shell chrome
-RUN npx -y playwright-core install --with-deps --no-shell firefox
 
 # ------------------------------
 # Runtime
